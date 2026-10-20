@@ -578,6 +578,65 @@ $('space-name').addEventListener('dblclick', () => {
 });
 
 // ---------------------------------------------------------------------------
+
+ // ---------------------------------------------------------------------------
+ // Two-finger horizontal trackpad swipe to switch Heli-Arc Spaces.
+ // A left swipe moves forward; a right swipe moves backward.
+ let spaceSwipeDelta = 0;
+ let spaceSwipeTriggered = false;
+ let spaceSwipeResetTimer = null;
+ let lastSpaceSwipeAt = 0;
+
+ document.addEventListener('wheel', (e) => {
+   // Ignore vertical scrolling and diagonal gestures.
+   if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.2) return;
+   if (Math.abs(e.deltaX) < 1) return;
+
+   // Treat a continuous stream of wheel events as one gesture.
+   clearTimeout(spaceSwipeResetTimer);
+   spaceSwipeResetTimer = setTimeout(() => {
+     spaceSwipeDelta = 0;
+     spaceSwipeTriggered = false;
+   }, 250);
+
+   if (spaceSwipeTriggered || !state || !sess || !windowId) return;
+
+   spaceSwipeDelta += e.deltaX;
+
+   // Ignore small horizontal movements.
+   if (Math.abs(spaceSwipeDelta) < 45) return;
+
+   const now = Date.now();
+   if (now - lastSpaceSwipeAt < 650) {
+     spaceSwipeTriggered = true;
+     return;
+   }
+
+   const currentIndex = state.spaces.findIndex(
+     (space) => space.id === activeSpaceId
+   );
+
+   if (currentIndex === -1) return;
+
+   // Natural trackpad scrolling: negative deltaX means swipe left.
+   const direction = spaceSwipeDelta < 0 ? 1 : -1;
+   const nextIndex = currentIndex + direction;
+
+   // Do not wrap around at either end.
+   if (nextIndex < 0 || nextIndex >= state.spaces.length) {
+     spaceSwipeTriggered = true;
+     return;
+   }
+
+   spaceSwipeTriggered = true;
+   lastSpaceSwipeAt = now;
+
+   act('switchSpace', {
+     windowId,
+     spaceId: state.spaces[nextIndex].id,
+   });
+ }, { passive: true });
+
 // Live updates
 
 for (const ev of ['onCreated', 'onRemoved', 'onActivated', 'onMoved', 'onAttached', 'onDetached', 'onReplaced']) {
